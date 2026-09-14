@@ -81,6 +81,6 @@ Le coordinate continuano a essere registrate offline; indirizzo automatico e car
 
 ## Stato di questa versione
 
-Versione `0.1.1`: implementa l'architettura concordata, include il workflow GitHub Pages corretto senza dipendenza da un lock file npm e costituisce la base da provare nei sopralluoghi reali. Prima di un uso aziendale esteso vanno effettuati test su dispositivi Android reali, test di storage con molte foto/documenti e verifica delle policy interne sui dati.
+Versione `0.1.2`: corregge gli errori TypeScript emersi nella prima build GitHub Actions (Web Crypto, tipi impostazioni e valutazione, cleanup Leaflet e import CSS) e mantiene il workflow GitHub Pages senza dipendenza da un lock file npm. Prima di un uso aziendale esteso vanno effettuati test su dispositivi Android reali, test di storage con molte foto/documenti e verifica delle policy interne sui dati.
 
 Vedi anche `docs/ARCHITETTURA.md`.

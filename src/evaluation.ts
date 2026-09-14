@@ -1,16 +1,21 @@
 import type { Inspection } from './types'
 
-const defaultSectionWeights = { access:20, yard:20, warehouse:15, configuration:20, location:15, offices:5, systemsPlanning:5 } as const
+const defaultSectionWeights = { access:20, yard:20, warehouse:15, configuration:20, location:15, offices:5, systemsPlanning:5 }
 const defaultThresholds = { excellent:85, good:70, evaluable:55, critical:40 }
 const defaultBlocking = { heavyAccess:true, useCompatible:true, rentalCompatible:true, storageCompatible:true, configuration:true, overheadPowerLines:false, workshop:false, wash:false, fuel:false }
-function runtimeConfig(){
-  try {
-    return {
-      weights: { ...defaultSectionWeights, ...JSON.parse(localStorage.getItem('sf-weights')||'{}') },
-      thresholds: { ...defaultThresholds, ...JSON.parse(localStorage.getItem('sf-thresholds')||'{}') },
-      blocking: { ...defaultBlocking, ...JSON.parse(localStorage.getItem('sf-blocking')||'{}') }
-    }
-  } catch { return { weights:defaultSectionWeights, thresholds:defaultThresholds, blocking:defaultBlocking } }
+type SectionKey = keyof typeof defaultSectionWeights
+type RuntimeConfig = {
+  weights: Record<SectionKey, number>
+  thresholds: typeof defaultThresholds
+  blocking: typeof defaultBlocking
+}
+function parseStored<T>(key:string):Partial<T>{try{return JSON.parse(localStorage.getItem(key)||'{}') as Partial<T>}catch{return {}}}
+function runtimeConfig():RuntimeConfig{
+  return {
+    weights: { ...defaultSectionWeights, ...parseStored<Record<SectionKey,number>>('sf-weights') },
+    thresholds: { ...defaultThresholds, ...parseStored<typeof defaultThresholds>('sf-thresholds') },
+    blocking: { ...defaultBlocking, ...parseStored<typeof defaultBlocking>('sf-blocking') }
+  }
 }
 
 const maps: Record<string, Record<string, number>> = {
@@ -280,10 +285,11 @@ export function evaluateInspection(inspection: Inspection) {
   let total = 0
   let usedWeight = 0
   const cfgRuntime = runtimeConfig()
-  for (const [key, weight] of Object.entries(cfgRuntime.weights)) {
-    const s = sections[key as keyof typeof sections]
-    if (s == null) continue
-    total += s * weight
+  for (const key of Object.keys(cfgRuntime.weights) as SectionKey[]) {
+    const weight = cfgRuntime.weights[key]
+    const sectionScore = sections[key]
+    if (sectionScore == null) continue
+    total += sectionScore * weight
     usedWeight += weight
   }
   let score = usedWeight ? total / usedWeight : 0

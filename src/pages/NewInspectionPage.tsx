@@ -1,0 +1,20 @@
+import { useEffect, useState } from 'react'
+import { db, nowIso, uid } from '../db'
+import type { Zone } from '../types'
+import { getCurrentPosition, reverseGeocode } from '../services/geo'
+import { LocationPicker } from '../components/LocationPicker'
+
+export function NewInspectionPage(){
+  const[zones,setZones]=useState<Zone[]>([]);const[zoneId,setZoneId]=useState('');const[newZone,setNewZone]=useState('');const[lat,setLat]=useState<number>();const[lng,setLng]=useState<number>();const[address,setAddress]=useState('');const[municipality,setMunicipality]=useState('');const[province,setProvince]=useState('');const[postalCode,setPostalCode]=useState('');const[picker,setPicker]=useState(false);const[busy,setBusy]=useState(false)
+  useEffect(()=>{db.zones.toArray().then(z=>{setZones(z);if(z.length)setZoneId(z[z.length-1].id)});const raw=sessionStorage.getItem('sf-new-point');if(raw){try{const p=JSON.parse(raw);setLat(p.lat);setLng(p.lng);if(p.zoneId)setZoneId(p.zoneId);reverseGeocode(p.lat,p.lng).then(r=>{if(r){setAddress(r.address);setMunicipality(r.municipality);setProvince(r.province);setPostalCode(r.postalCode)}});sessionStorage.removeItem('sf-new-point')}catch{}}},[])
+  const fillGeo=async(a:number,b:number)=>{setLat(a);setLng(b);const r=await reverseGeocode(a,b);if(r){setAddress(r.address);setMunicipality(r.municipality);setProvince(r.province);setPostalCode(r.postalCode)}}
+  const gps=async()=>{setBusy(true);try{const p=await getCurrentPosition();await fillGeo(p.coords.latitude,p.coords.longitude)}catch(e:any){alert(e.message||'Impossibile rilevare la posizione')}finally{setBusy(false)}}
+  const createZone=async()=>{if(!newZone.trim())return;const z:Zone={id:uid(),name:newZone.trim(),createdAt:nowIso(),updatedAt:nowIso()};await db.zones.add(z);setZones([...zones,z]);setZoneId(z.id);setNewZone('')}
+  const start=async()=>{if(!zoneId)return alert('Seleziona o crea una zona.');const id=uid(),date=new Date().toISOString().slice(0,10),name=[municipality,address].filter(Boolean).join(' – ')||'Nuovo sopralluogo';await db.inspections.add({id,zoneId,status:'draft',createdAt:nowIso(),updatedAt:nowIso(),date,name,address,municipality,province,postalCode,lat,lng,data:{general:{inspectionDate:date,inspectionName:name}}});location.hash=`#/inspection/${id}/general`}
+  return <div className="page narrow-page"><header className="topbar"><button className="back-btn" onClick={()=>history.back()}>←</button><div><div className="eyebrow">Sviluppo Filiali</div><h1>Nuovo sopralluogo</h1></div></header>
+    <section className="card"><h3>Zona di ricerca</h3><div className="field-block"><label>Zona</label><select value={zoneId} onChange={e=>setZoneId(e.target.value)}><option value="">Seleziona...</option>{zones.map(z=><option value={z.id} key={z.id}>{z.name}</option>)}</select></div><div className="inline-create"><input placeholder="Crea nuova zona" value={newZone} onChange={e=>setNewZone(e.target.value)}/><button className="btn secondary" onClick={createZone}>+ Crea</button></div></section>
+    <section className="card"><h3>Posizione</h3><div className="button-pair"><button className="btn primary" onClick={gps} disabled={busy}>{busy?'Rilevamento...':'Rileva posizione GPS'}</button><button className="btn secondary" onClick={()=>setPicker(true)}>Seleziona sulla mappa</button></div>{lat!=null&&<div className="location-preview"><strong>{address||'Coordinate rilevate'}</strong><span>{[postalCode,municipality,province].filter(Boolean).join(' · ')}</span><small>{lat.toFixed(6)}, {lng?.toFixed(6)}</small></div>}<div className="field-block"><label>Indirizzo completo</label><input value={address} onChange={e=>setAddress(e.target.value)}/></div></section>
+    <button className="btn primary wide big" onClick={start}>Inizia sopralluogo</button>
+    {picker&&<LocationPicker lat={lat} lng={lng} onClose={()=>setPicker(false)} onConfirm={async(a,b)=>{setPicker(false);await fillGeo(a,b)}}/>}
+  </div>
+}
